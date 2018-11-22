@@ -194,7 +194,8 @@ def load_para_data(params, data):
             #     para_data.select_data(0, 100)
             # if name == 'test':
             #     para_data.select_data(0, 167)
-
+            elif name == 'train' and params.n_para == -1:
+                params.n_para = len(para_data)
             datasets.append((name, para_data))
 
         assert (lang1, lang2) not in data['para']

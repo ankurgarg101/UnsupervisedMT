@@ -82,14 +82,14 @@ if __name__ == '__main__':
 
         txt_path = path.join(params['data_dir'], '{}.{}'.format(params['dev'], lang))
         bin_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}'.format(params['dev'], lang))
-        
+        bin_path = bin_path + '.pth'
         assert os.path.isfile(txt_path)
 
         create_binary(txt_path, bin_path, dico)
 
         txt_path = path.join(params['data_dir'], '{}.{}'.format(params['test'], lang))
         bin_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}'.format(params['test'], lang))
-        
+        bin_path = bin_path + '.pth'
         assert os.path.isfile(txt_path)
 
         create_binary(txt_path, bin_path, dico)
