@@ -28,6 +28,9 @@ parser.add_argument("--save_periodic", type=bool_flag, default=False,
                     help="Save the model periodically")
 parser.add_argument("--seed", type=int, default=-1,
                     help="Random generator seed (-1 for random)")
+parser.add_argument("--cudnn_enabled", type=bool_flag, default=True,
+                    help="Enables cudnn in pytorch")
+
 # autoencoder parameters
 parser.add_argument("--emb_dim", type=int, default=512,
                     help="Embedding layer size")
