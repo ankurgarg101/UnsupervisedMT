@@ -22,6 +22,7 @@ from .test import test_sharing
 
 logger = getLogger()
 
+torch.backends.cudnn.enabled = False
 
 class TrainerMT(MultiprocessingEventLoop):
 

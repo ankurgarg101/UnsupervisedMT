@@ -11,8 +11,8 @@ set -e
 # Data preprocessing configuration
 #
 
-N_MONO=10000000  # number of monolingual sentences for each language
-CODES=60000      # number of BPE codes
+N_MONO=1000  # number of monolingual sentences for each language
+CODES=600      # number of BPE codes
 N_THREADS=48     # number of threads in data preprocessing
 N_EPOCHS=10      # number of fastText epochs
 
@@ -112,106 +112,106 @@ fi
 echo "fastText compiled in: $FASTTEXT"
 
 
-#
-# Download monolingual data
-#
+# #
+# # Download monolingual data
+# #
 
-cd $MONO_PATH
+# cd $MONO_PATH
 
-echo "Downloading English files..."
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2007.en.shuffled.gz
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2008.en.shuffled.gz
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2009.en.shuffled.gz
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2010.en.shuffled.gz
-# wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2011.en.shuffled.gz
-# wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2012.en.shuffled.gz
-# wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2013.en.shuffled.gz
-# wget -c http://www.statmt.org/wmt15/training-monolingual-news-crawl-v2/news.2014.en.shuffled.v2.gz
-# wget -c http://data.statmt.org/wmt16/translation-task/news.2015.en.shuffled.gz
-# wget -c http://data.statmt.org/wmt17/translation-task/news.2016.en.shuffled.gz
-# wget -c http://data.statmt.org/wmt18/translation-task/news.2017.en.shuffled.deduped.gz
+# echo "Downloading English files..."
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2007.en.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2008.en.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2009.en.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2010.en.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2011.en.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2012.en.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2013.en.shuffled.gz
+# # wget -c http://www.statmt.org/wmt15/training-monolingual-news-crawl-v2/news.2014.en.shuffled.v2.gz
+# # wget -c http://data.statmt.org/wmt16/translation-task/news.2015.en.shuffled.gz
+# # wget -c http://data.statmt.org/wmt17/translation-task/news.2016.en.shuffled.gz
+# # wget -c http://data.statmt.org/wmt18/translation-task/news.2017.en.shuffled.deduped.gz
 
-echo "Downloading French files..."
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2007.fr.shuffled.gz
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2008.fr.shuffled.gz
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2009.fr.shuffled.gz
-wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2010.fr.shuffled.gz
-# wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2011.fr.shuffled.gz
-# wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2012.fr.shuffled.gz
-# wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2013.fr.shuffled.gz
-# wget -c http://www.statmt.org/wmt15/training-monolingual-news-crawl-v2/news.2014.fr.shuffled.v2.gz
-# wget -c http://data.statmt.org/wmt17/translation-task/news.2015.fr.shuffled.gz
-# wget -c http://data.statmt.org/wmt17/translation-task/news.2016.fr.shuffled.gz
-# wget -c http://data.statmt.org/wmt17/translation-task/news.2017.fr.shuffled.gz
+# echo "Downloading French files..."
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2007.fr.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2008.fr.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2009.fr.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2010.fr.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2011.fr.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2012.fr.shuffled.gz
+# # wget -c http://www.statmt.org/wmt14/training-monolingual-news-crawl/news.2013.fr.shuffled.gz
+# # wget -c http://www.statmt.org/wmt15/training-monolingual-news-crawl-v2/news.2014.fr.shuffled.v2.gz
+# # wget -c http://data.statmt.org/wmt17/translation-task/news.2015.fr.shuffled.gz
+# # wget -c http://data.statmt.org/wmt17/translation-task/news.2016.fr.shuffled.gz
+# # wget -c http://data.statmt.org/wmt17/translation-task/news.2017.fr.shuffled.gz
 
-# decompress monolingual data
-for FILENAME in news*gz; do
-  OUTPUT="${FILENAME::-3}"
-  if [ ! -f "$OUTPUT" ]; then
-    echo "Decompressing $FILENAME..."
-    gunzip -k $FILENAME
-  else
-    echo "$OUTPUT already decompressed."
-  fi
-done
+# # # decompress monolingual data
+# # for FILENAME in news*gz; do
+# #   OUTPUT="${FILENAME::-3}"
+# #   if [ ! -f "$OUTPUT" ]; then
+# #     echo "Decompressing $FILENAME..."
+# #     gunzip -k $FILENAME
+# #   else
+# #     echo "$OUTPUT already decompressed."
+# #   fi
+# # done
 
-# concatenate monolingual data files
-if ! [[ -f "$SRC_RAW" && -f "$TGT_RAW" ]]; then
-  echo "Concatenating monolingual data..."
-  cat $(ls news*en* | grep -v gz) | head -n $N_MONO > $SRC_RAW
-  cat $(ls news*fr* | grep -v gz) | head -n $N_MONO > $TGT_RAW
-fi
-echo "EN monolingual data concatenated in: $SRC_RAW"
-echo "FR monolingual data concatenated in: $TGT_RAW"
+# # concatenate monolingual data files
+# if ! [[ -f "$SRC_RAW" && -f "$TGT_RAW" ]]; then
+#   echo "Concatenating monolingual data..."
+#   cat $(ls news*en* | grep -v gz) | head -n $N_MONO > $SRC_RAW
+#   cat $(ls news*fr* | grep -v gz) | head -n $N_MONO > $TGT_RAW
+# fi
+# echo "EN monolingual data concatenated in: $SRC_RAW"
+# echo "FR monolingual data concatenated in: $TGT_RAW"
 
-# check number of lines
-if ! [[ "$(wc -l < $SRC_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines doesn't match! Be sure you have $N_MONO sentences in your EN monolingual data."; exit; fi
-if ! [[ "$(wc -l < $TGT_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines doesn't match! Be sure you have $N_MONO sentences in your FR monolingual data."; exit; fi
+# # check number of lines
+# if ! [[ "$(wc -l < $SRC_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines doesn't match! Be sure you have $N_MONO sentences in your EN monolingual data."; exit; fi
+# if ! [[ "$(wc -l < $TGT_RAW)" -eq "$N_MONO" ]]; then echo "ERROR: Number of lines doesn't match! Be sure you have $N_MONO sentences in your FR monolingual data."; exit; fi
 
-# tokenize data
-if ! [[ -f "$SRC_TOK" && -f "$TGT_TOK" ]]; then
-  echo "Tokenize monolingual data..."
-  cat $SRC_RAW | $NORM_PUNC -l en | $TOKENIZER -l en -no-escape -threads $N_THREADS > $SRC_TOK
-  cat $TGT_RAW | $NORM_PUNC -l fr | $TOKENIZER -l fr -no-escape -threads $N_THREADS > $TGT_TOK
-fi
-echo "EN monolingual data tokenized in: $SRC_TOK"
-echo "FR monolingual data tokenized in: $TGT_TOK"
+# # tokenize data
+# if ! [[ -f "$SRC_TOK" && -f "$TGT_TOK" ]]; then
+#   echo "Tokenize monolingual data..."
+#   cat $SRC_RAW | $NORM_PUNC -l en | $TOKENIZER -l en -no-escape -threads $N_THREADS > $SRC_TOK
+#   cat $TGT_RAW | $NORM_PUNC -l fr | $TOKENIZER -l fr -no-escape -threads $N_THREADS > $TGT_TOK
+# fi
+# echo "EN monolingual data tokenized in: $SRC_TOK"
+# echo "FR monolingual data tokenized in: $TGT_TOK"
 
-# learn BPE codes
-if [ ! -f "$BPE_CODES" ]; then
-  echo "Learning BPE codes..."
-  $FASTBPE learnbpe $CODES $SRC_TOK $TGT_TOK > $BPE_CODES
-fi
-echo "BPE learned in $BPE_CODES"
+# # learn BPE codes
+# if [ ! -f "$BPE_CODES" ]; then
+#   echo "Learning BPE codes..."
+#   $FASTBPE learnbpe $CODES $SRC_TOK $TGT_TOK > $BPE_CODES
+# fi
+# echo "BPE learned in $BPE_CODES"
 
-# apply BPE codes
-if ! [[ -f "$SRC_TOK.$CODES" && -f "$TGT_TOK.$CODES" ]]; then
-  echo "Applying BPE codes..."
-  $FASTBPE applybpe $SRC_TOK.$CODES $SRC_TOK $BPE_CODES
-  $FASTBPE applybpe $TGT_TOK.$CODES $TGT_TOK $BPE_CODES
-fi
-echo "BPE codes applied to EN in: $SRC_TOK.$CODES"
-echo "BPE codes applied to FR in: $TGT_TOK.$CODES"
+# # apply BPE codes
+# if ! [[ -f "$SRC_TOK.$CODES" && -f "$TGT_TOK.$CODES" ]]; then
+#   echo "Applying BPE codes..."
+#   $FASTBPE applybpe $SRC_TOK.$CODES $SRC_TOK $BPE_CODES
+#   $FASTBPE applybpe $TGT_TOK.$CODES $TGT_TOK $BPE_CODES
+# fi
+# echo "BPE codes applied to EN in: $SRC_TOK.$CODES"
+# echo "BPE codes applied to FR in: $TGT_TOK.$CODES"
 
-# extract vocabulary
-if ! [[ -f "$SRC_VOCAB" && -f "$TGT_VOCAB" && -f "$FULL_VOCAB" ]]; then
-  echo "Extracting vocabulary..."
-  $FASTBPE getvocab $SRC_TOK.$CODES > $SRC_VOCAB
-  $FASTBPE getvocab $TGT_TOK.$CODES > $TGT_VOCAB
-  $FASTBPE getvocab $SRC_TOK.$CODES $TGT_TOK.$CODES > $FULL_VOCAB
-fi
-echo "EN vocab in: $SRC_VOCAB"
-echo "FR vocab in: $TGT_VOCAB"
-echo "Full vocab in: $FULL_VOCAB"
+# # extract vocabulary
+# if ! [[ -f "$SRC_VOCAB" && -f "$TGT_VOCAB" && -f "$FULL_VOCAB" ]]; then
+#   echo "Extracting vocabulary..."
+#   $FASTBPE getvocab $SRC_TOK.$CODES > $SRC_VOCAB
+#   $FASTBPE getvocab $TGT_TOK.$CODES > $TGT_VOCAB
+#   $FASTBPE getvocab $SRC_TOK.$CODES $TGT_TOK.$CODES > $FULL_VOCAB
+# fi
+# echo "EN vocab in: $SRC_VOCAB"
+# echo "FR vocab in: $TGT_VOCAB"
+# echo "Full vocab in: $FULL_VOCAB"
 
-# binarize data
-if ! [[ -f "$SRC_TOK.$CODES.pth" && -f "$TGT_TOK.$CODES.pth" ]]; then
-  echo "Binarizing data..."
-  $UMT_PATH/preprocess.py $FULL_VOCAB $SRC_TOK.$CODES
-  $UMT_PATH/preprocess.py $FULL_VOCAB $TGT_TOK.$CODES
-fi
-echo "EN binarized data in: $SRC_TOK.$CODES.pth"
-echo "FR binarized data in: $TGT_TOK.$CODES.pth"
+# # binarize data
+# if ! [[ -f "$SRC_TOK.$CODES.pth" && -f "$TGT_TOK.$CODES.pth" ]]; then
+#   echo "Binarizing data..."
+#   $UMT_PATH/preprocess.py $FULL_VOCAB $SRC_TOK.$CODES
+#   $UMT_PATH/preprocess.py $FULL_VOCAB $TGT_TOK.$CODES
+# fi
+# echo "EN binarized data in: $SRC_TOK.$CODES.pth"
+# echo "FR binarized data in: $TGT_TOK.$CODES.pth"
 
 
 #
