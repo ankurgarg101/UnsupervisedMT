@@ -116,13 +116,13 @@ def get_dump_path(params):
         else:
             assert exp_id.isdigit()
         params.exp_id = exp_id
-    else:
+    elif os.path.exists(os.path.join(sweep_path, params.exp_id)):
         assert os.path.isdir(os.path.join(sweep_path, params.exp_id))  # reload an experiment
 
     # create the dump folder / update parameters
     params.dump_path = os.path.join(sweep_path, params.exp_id)
     if not os.path.isdir(params.dump_path):
-        subprocess.Popen("mkdir %s" % params.dump_path, shell=True).wait()
+        subprocess.Popen("mkdir -p %s" % params.dump_path, shell=True).wait()
 
 
 def get_optimizer(parameters, s):

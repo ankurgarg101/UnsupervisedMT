@@ -874,7 +874,7 @@ class TrainerMT(MultiprocessingEventLoop):
                 self.best_stopping_criterion = scores[self.stopping_criterion]
                 logger.info("New best validation score: %f" % self.best_stopping_criterion)
                 self.decrease_counts = 0
-            if scores[self.stopping_criterion] < self.best_stopping_criterion:
+            if scores[self.stopping_criterion] <= self.best_stopping_criterion:
                 logger.info("Not a better validation score (%i / %i)."
                             % (self.decrease_counts, self.decrease_counts_max))
                 self.decrease_counts += 1
