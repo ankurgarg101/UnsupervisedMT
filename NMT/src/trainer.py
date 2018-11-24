@@ -719,7 +719,8 @@ class TrainerMT(MultiprocessingEventLoop):
         self.n_iter += 1
         self.n_total_iter += 1
         n_batches = len(self.params.mono_directions) + len(self.params.para_directions) + len(self.params.back_directions) + len(self.params.pivo_directions)
-        self.n_sentences += n_batches * self.params.batch_size
+        #self.n_sentences += n_batches * self.params.batch_size
+        self.n_sentences += len(self.params.para_directions) * self.params.batch_size
         self.print_stats()
         update_lambdas(self.params, self.n_total_iter)
 
