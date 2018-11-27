@@ -29,14 +29,24 @@ def fetch_raw(params):
 		file_name, paired_pct, unpaired_pct = file_info[idx], float(file_info[idx+1]), float(file_info[idx+2])
 		idx += 3
 		with open(path.join(data_dir, '{}.intent'.format(file_name)), 'r') as data_file:
-
 			intent_data = [ l.strip('\n\r') for l in data_file.readlines() ]
 
 		with open(path.join(data_dir, '{}.snippet'.format(file_name)), 'r') as data_file:
-
 			snippet_data = [ l.strip('\n\r') for l in data_file.readlines() ]
 
 		assert len(intent_data) == len(snippet_data)
+
+		n_intent_data = []
+		n_snippet_data = []
+
+		for line_idx in range(len(intent_data)):
+
+			if len(snippet_data[line_idx]) > 0:
+				n_intent_data.append(intent_data[line_idx])
+				n_snippet_data.append(snippet_data[line_idx])
+
+		intent_data = n_intent_data
+		snippet_data = n_snippet_data		
 
 		data_sz = len(intent_data)
 
