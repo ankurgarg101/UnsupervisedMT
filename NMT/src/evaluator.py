@@ -22,6 +22,8 @@ logger = getLogger()
 TOOLS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tools')
 BLEU_SCRIPT_PATH = os.path.join(TOOLS_PATH, 'mosesdecoder/scripts/generic/multi-bleu.perl')
 assert os.path.isfile(BLEU_SCRIPT_PATH), "Moses not found. Please be sure you downloaded Moses in %s" % TOOLS_PATH
+AST_SCRIPT_PATH = os.path.join(TOOLS_PATH, 'ast/metrics.py')
+assert os.path.isfile(AST_SCRIPT_PATH), "AST tool and post processing script not found in  %s" % TOOLS_PATH
 
 
 class EvaluatorMT(object):
@@ -175,9 +177,16 @@ class EvaluatorMT(object):
         bleu = eval_moses_bleu(ref_path, hyp_path)
         logger.info("BLEU %s %s : %f" % (hyp_path, ref_path, bleu))
 
+        # evaluate other metrics
+        ast, brackets = eval_other_metrics(ref_path, hyp_path)
+        logger.info("AST %s %s : %f" % (hyp_path, ref_path, ast))
+		logger.info("BRACKETS %s %s : %f" % (hyp_path, ref_path, brackets))
+
         # update scores
         scores['ppl_%s_%s_%s' % (lang1, lang2, data_type)] = np.exp(xe_loss / count)
         scores['bleu_%s_%s_%s' % (lang1, lang2, data_type)] = bleu
+        scores['ast_%s_%s_%s' % (lang1, lang2, data_type)] = ast
+        scores['brackets_%s_%s_%s' % (lang1, lang2, data_type)] = brackets
 
     def eval_back(self, lang1, lang2, lang3, data_type, scores):
         """
@@ -243,9 +252,16 @@ class EvaluatorMT(object):
         bleu = eval_moses_bleu(ref_path, hyp_path)
         logger.info("BLEU %s %s : %f" % (hyp_path, ref_path, bleu))
 
+        # evaluate other metrics
+        ast, brackets = eval_other_metrics(ref_path, hyp_path)
+        logger.info("AST %s %s : %f" % (hyp_path, ref_path, ast))
+        logger.info("BRACKETS %s %s : %f" % (hyp_path, ref_path, brackets))
+
         # update scores
         scores['ppl_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = np.exp(xe_loss / count)
         scores['bleu_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = bleu
+        scores['ast_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = ast
+        scores['brackets_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = brackets
 
     def run_all_evals(self, epoch):
         """
@@ -281,6 +297,29 @@ def eval_moses_bleu(ref, hyp):
     else:
         logger.warning('Impossible to parse BLEU score! "%s"' % result)
         return -1
+
+def eval_other_metrics(ref,hyp):
+    """
+    Given a file of hypothesis and reference files,
+    evaluates other metrics like ast and bracket checking. (only uses ref file if necessary)
+    """
+    assert os.path.isfile(ref) and os.path.isfile(hyp)
+    command = 'python3 '+ AST_SCRIPT_PATH + ' -ref %s -hyp %s'
+    p = subprocess.Popen(command % (ref, hyp), stdout=subprocess.PIPE, shell=True)
+    result = p.communicate()[0].decode("utf-8").split('\n')
+    ast = -1
+    bracket = -1
+    for line in result:
+        line = line.strip().split()
+        if len(line)>1:
+            if line[0].startswith('AST'):
+                ast = float(line[1])
+            elif line[0].startswith('Brackets'):
+                bracket = float(line[1])
+            else:
+                logger.warning('Impossible to parse AST score! "%s"' % result)
+                return -1, -1
+    return ast, bracket
 
 
 def convert_to_text(batch, lengths, dico, lang_id, params):
