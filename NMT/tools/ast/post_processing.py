@@ -2,7 +2,8 @@
 Module to deal with post processing and calculating ast and bracket syntax scores
 """
 import ast
-
+import warnings
+	
 def remove_unknown(code_string):
 	"""
 	Removes unknown by a random literal
@@ -33,6 +34,7 @@ def check_valid_syntax(code_string):
 	"""
 	Checks if given parse is correct
 	"""
+	warnings.filterwarnings("ignore")
 	try:
 		ast.parse(code_string)
 		return True
