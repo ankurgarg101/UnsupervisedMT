@@ -8,6 +8,7 @@
 import time
 import json
 import argparse
+import torch
 
 from src.data.loader import check_all_data_params, load_data
 from src.utils import bool_flag, initialize_exp
@@ -233,6 +234,8 @@ params = parser.parse_args()
 
 
 if __name__ == '__main__':
+	# Disable cudnn if needed
+    torch.backends.cudnn.enabled = params.cudnn_enabled
 
     # check parameters
     assert params.exp_name

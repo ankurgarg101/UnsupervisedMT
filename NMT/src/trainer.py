@@ -39,7 +39,7 @@ class TrainerMT(MultiprocessingEventLoop):
         self.data = data
         self.params = params
 
-        torch.backends.cudnn.enabled = params.cudnn_enabled
+        # torch.backends.cudnn.enabled = params.cudnn_enabled
 
         # initialization for on-the-fly generation/training
         if len(params.pivo_directions) > 0:
