@@ -34,4 +34,5 @@ def eval_other_metrics(ref,hyp):
                 return -1, -1
     return ast, bracket
 
-eval_other_metrics('../../../../config_train_75_0_0_0/results/hyp28.x-y.valid.txt','../../../../config_train_75_0_0_0/results/hyp28.x-y.valid.txt')
+a = eval_other_metrics('../../../../config_train_75_0_0_0/results/hyp28.x-y.valid.txt','../../../../config_train_75_0_0_0/results/hyp28.x-y.valid.txt')
+print (a)

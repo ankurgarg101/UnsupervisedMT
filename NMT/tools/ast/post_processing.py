@@ -3,6 +3,33 @@ Module to deal with post processing and calculating ast and bracket syntax score
 """
 import ast
 
+
+def remove_bpe(code_string, bpe='@@'):
+	"""
+	Merges bpe litereal
+	"""
+	code_array = code_string.strip().split()
+	new_string = ""
+	new_code_array = []
+	prev_bpe = False
+	for code in code_array:
+		if code.endswith(bpe):
+			new_code_array.append((code[:-(len(bpe))],prev_bpe))
+			prev_bpe = True
+		else:
+			new_code_array.append((code,prev_bpe))
+			prev_bpe = False
+
+	new_string = ""
+	for c,b in new_code_array:
+		if b:
+			new_string += c
+		else:
+			new_string += " " + c
+	new_string = new_string.strip()
+	
+	return new_string
+
 def remove_unknown(code_string):
 	"""
 	Removes unknown by a random literal
@@ -43,7 +70,26 @@ def check_valid_bracket_structure(code_string):
 	"""
 	Checks if the given code follows bracket structure
 	Easier check than actual ast (does not care about indentation or other syntax)
+
+	Finds out how balanced an expression is.
+	With a string containing only brackets.
+
+	>>> is_matched('[]()()(((([])))')
+	False
+	>>> is_matched('[](){{{[]}}}')
+	True
 	"""
-	return True
+	opening = tuple('({[')
+	closing = tuple(')}]')
+	mapping = dict(zip(opening, closing))
+	queue = []
+	for letter in code_string:
+		if letter in opening:
+			queue.append(mapping[letter])
+		elif letter in closing:
+			if not queue or letter != queue.pop():
+				return False
+	return not queue
+
 
 
