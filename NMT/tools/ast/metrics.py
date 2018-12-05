@@ -24,7 +24,6 @@ def calculate_y_metrics(ref_file, hyp_file):
 		for line in hyp:
 			total_lines += 1
 			hyp_line = line.strip()
-			hyp_line = pp.remove_bpe(hyp_line)
 			hyp_line = pp.remove_unknown(hyp_line)
 			hyp_line = pp.remove_expanded_symbols(hyp_line, symbol_dict)
 			if pp.check_valid_syntax(hyp_line):

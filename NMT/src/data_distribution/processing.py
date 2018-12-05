@@ -3,32 +3,6 @@ Module to deal with post processing and calculating ast and bracket syntax score
 """
 import ast
 
-def remove_bpe(code_string, bpe='@@'):
-	"""
-	Merges bpe litereal
-	"""
-	code_array = code_string.strip().split()
-	new_string = ""
-	new_code_array = []
-	prev_bpe = False
-	for code in code_array:
-		if code.endswith(bpe):
-			new_code_array.append((code[:-(len(bpe))],prev_bpe))
-			prev_bpe = True
-		else:
-			new_code_array.append((code,prev_bpe))
-			prev_bpe = False
-
-	new_string = ""
-	for c,b in new_code_array:
-		if b:
-			new_string += c
-		else:
-			new_string += " " + c
-	new_string = new_string.strip()
-	
-	return new_string
-
 def remove_unknown(code_string):
 	"""
 	Removes unknown by a random literal
@@ -43,6 +17,7 @@ def get_symbols_dict():
 	symbols_dict['#SPACE#'] = ' '
 	symbols_dict['#TAB#'] = '\t'
 	symbols_dict['#NEWLINE#'] = '\n'
+	symbols_dict['#SLASH#'] = '\\'
 	return symbols_dict
 
 def get_ast_ignore_list():
@@ -71,7 +46,6 @@ def check_valid_syntax(code_string):
 
 def get_distribution(code_string, ignore_list, dist):
 	symbol_dict = get_symbols_dict()
-	code_string = remove_bpe(code_string)
 	code_string = remove_unknown(code_string)
 	code_string = remove_expanded_symbols(code_string, symbol_dict)
 	if check_valid_syntax(code_string):
