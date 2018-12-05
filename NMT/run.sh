@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # Extract all arguments 
-ORG_DATA_DIR=$1
-BASE_DIR=$2
-USE_BPE=$3
+BASE_DIR=$1
+ANNOT_PPCT=$2
+ANNOT_UPPCT=$3
+MINED_PPCT=$4
+MINED_UPPCT=$5
+BATCH_SIZE=$6
+EPOCH=$7
+USE_BPE=$8
+USE_CUDNN=$9
 
-ANNOT_PPCT=$4
-ANNOT_UPPCT=$5
-MINED_PPCT=$6
-MINED_UPPCT=$7
 CONFIG="t_${ANNOT_PPCT}_${ANNOT_UPPCT}_m_${MINED_PPCT}_${MINED_UPPCT}"
-
 DATA_PATH=$2/$CONFIG/data
 
 set -e
@@ -21,73 +22,14 @@ CODES=600      # number of BPE codes
 UMT_PATH=$PWD
 TOOLS_PATH=$PWD/tools
 
-# fastBPE
-FASTBPE_DIR=$TOOLS_PATH/fastBPE
-FASTBPE=$FASTBPE_DIR/fast
-
-# files full paths
-SRC_BPE_CODES=$DATA_PATH/src.bpe
-TGT_BPE_CODES=$DATA_PATH/tgt.bpe
-
-MONO_SRC=$DATA_PATH/mono.x
-PARA_SRC=$DATA_PATH/para.x
-
-MONO_TGT=$DATA_PATH/mono.y
-PARA_TGT=$DATA_PATH/para.y
-
-SRC_DEV=$ORG_DATA_DIR/conala-dev.x
-TGT_DEV=$ORG_DATA_DIR/conala-dev.y
-SRC_TEST=$ORG_DATA_DIR/conala-test.x
-TGT_TEST=$ORG_DATA_DIR/conala-test.y
-
-SRC_VOCAB=$DATA_PATH/vocab.x.$CODES
-TGT_VOCAB=$DATA_PATH/vocab.y.$CODES
-
-# Delete all .pth files
-rm -f $DATA_PATH/*.pth
-
-# Create the data splits
-python3 splitter.py --data-dir $ORG_DATA_DIR --out-dir $BASE_DIR --name $CONFIG --file-info "conala-trainnodev,$ANNOT_PPCT,$ANNOT_UPPCT,conala-mined,$MINED_PPCT,$MINED_UPPCT"
-
 if [ $USE_BPE -eq 1 ]; then
-	echo "Learning BPE codes..."
-	$FASTBPE learnbpe $CODES $MONO_SRC $PARA_SRC > $SRC_BPE_CODES
-	$FASTBPE learnbpe $CODES $MONO_TGT $PARA_TGT > $TGT_BPE_CODES
-	echo "BPE learned in $BPE_CODES"
-
-	# # apply BPE codes
-	echo "Applying BPE codes..."
-	if [[ -s $MONO_SRC ]]; then
-		$FASTBPE applybpe $MONO_SRC.$CODES $MONO_SRC $SRC_BPE_CODES;
-	else
-		touch $MONO_SRC.$CODES
-	fi
-	$FASTBPE applybpe $PARA_SRC.$CODES $PARA_SRC $SRC_BPE_CODES
-	$FASTBPE applybpe $SRC_DEV.$CODES $SRC_DEV $SRC_BPE_CODES
-	$FASTBPE applybpe $SRC_TEST.$CODES $SRC_TEST $SRC_BPE_CODES
-	echo "BPE codes applied to SRC"
-
-	if [[ -s $MONO_TGT ]]; then
-		$FASTBPE applybpe $MONO_TGT.$CODES $MONO_TGT $TGT_BPE_CODES
-	else
-		touch $MONO_TGT.$CODES
-	fi
-	$FASTBPE applybpe $PARA_TGT.$CODES $PARA_TGT $TGT_BPE_CODES
-	$FASTBPE applybpe $TGT_DEV.$CODES $TGT_DEV $TGT_BPE_CODES
-	$FASTBPE applybpe $TGT_TEST.$CODES $TGT_TEST $TGT_BPE_CODES
-	echo "BPE codes applied to TGT"
-
-	# # extract vocabulary
-	echo "Extracting vocabulary..."
-	if [[ -s $MONO_TGT ]]; then
-		$FASTBPE getvocab $MONO_SRC.$CODES $PARA_SRC.$CODES > $SRC_VOCAB
-		$FASTBPE getvocab $MONO_TGT.$CODES $PARA_TGT.$CODES > $TGT_VOCAB
-	else
-		$FASTBPE getvocab $PARA_SRC.$CODES > $SRC_VOCAB
-		$FASTBPE getvocab $PARA_TGT.$CODES > $TGT_VOCAB
-	fi
-
-	python3 preprocess.py --data-dir $ORG_DATA_DIR --out-dir $BASE_DIR --name $CONFIG --dev conala-dev --test conala-test --use_bpe --bpe_codes $CODES
+	BPE=".${CODES}"
 else
-	python3 preprocess.py --data-dir $ORG_DATA_DIR --out-dir $BASE_DIR --name $CONFIG --dev conala-dev --test conala-test
+	BPE=""
+fi
+
+if [ $ANNOT_UPPCT -eq 0 -a $MINED_UPPCT -eq 0 ]; then
+python3 main.py --exp_name $CONFIG --exp_id "results${BPE}" --dump_path $BASE_DIR --transformer True --n_enc_layers 4 --n_dec_layers 4 --share_enc 3 --share_dec 3 --share_lang_emb False --share_output_emb False --langs 'x,y' --n_mono -1  --mono_dataset "x:${BASE_DIR}/${CONFIG}/data/para.x${BPE}.pth,,;y:${BASE_DIR}/${CONFIG}/data/para.y${BPE}.pth,," --n_para -1 --para_dataset "x-y:${BASE_DIR}/${CONFIG}/data/para.XX${BPE}.pth,${BASE_DIR}/${CONFIG}/data/conala-dev.XX${BPE}.pth,${BASE_DIR}/${CONFIG}/data/conala-test.XX${BPE}.pth" --para_directions 'x-y,y-x' --pivo_directions 'x-y-x,y-x-y' --lambda_xe_para '0:1,100000:0.1,300000:0'  --lambda_xe_otfd 1 --lambda_dis 0.5 --n_dis 2 --otf_num_processes 10 --otf_sync_params_every 1000 --enc_optimizer adam,lr=0.0001 --epoch_size -1 --stopping_criterion bleu_x_y_valid,25 --cudnn_enabled $USE_CUDNN --batch_size $BATCH_SIZE  --max_epoch $EPOCH
+else
+	python3 main.py --exp_name $CONFIG --exp_id "results${BPE}" --dump_path $BASE_DIR --transformer True --n_enc_layers 4 --n_dec_layers 4 --share_enc 3 --share_dec 3 --share_lang_emb False --share_output_emb False --langs 'x,y' --n_mono -1  --mono_dataset "x:${BASE_DIR}/${CONFIG}/data/mono.x${BPE}.pth,,;y:${BASE_DIR}/${CONFIG}/data/mono.y${BPE}.pth,," --n_para -1 --para_dataset "x-y:${BASE_DIR}/${CONFIG}/data/para.XX${BPE}.pth,${BASE_DIR}/${CONFIG}/data/conala-dev.XX${BPE}.pth,${BASE_DIR}/${CONFIG}/data/conala-test.XX${BPE}.pth" --para_directions 'x-y,y-x' --pivo_directions 'x-y-x,y-x-y' --mono_directions 'x,y' --word_shuffle 3 --word_dropout 0.1 --word_blank 0.2   --lambda_xe_mono '0:1,100000:0.1,300000:0'  --lambda_xe_para '0:1,100000:0.1,300000:0'  --lambda_xe_otfd 1 --lambda_dis 0.5 --n_dis 2 --otf_num_processes 10 --otf_sync_params_every 1000 --enc_optimizer adam,lr=0.0001 --epoch_size -1 --stopping_criterion bleu_x_y_valid,25 --cudnn_enabled $USE_CUDNN --batch_size $BATCH_SIZE  --max_epoch $EPOCH
 fi
