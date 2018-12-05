@@ -2,9 +2,20 @@
 Module that is used as an interface by other external modules to load the dataset
 """
 
+import argparse
 from os import path
 import numpy as np
 import os
+
+def parse_args(parser):
+
+	parser.add_argument('--data-dir', dest='data_dir', type=str, required=True, help="Data directory of input data")
+	parser.add_argument('--out-dir', dest='out_dir', type=str, required=True, help="Output data directory path")
+	parser.add_argument('--name', type=str, required=True, help="Name of the configuration")
+
+	parser.add_argument('--file-info', dest="file_info", type=str, required=True, help='File Info of the form (fp1, paired_pct1, upaired_pct1, fp2, paired_pct2, upaired_pct2)')
+
+	return vars(parser.parse_args())
 
 def fetch_raw(params):
 
@@ -28,10 +39,10 @@ def fetch_raw(params):
 		# NOTE: Currently, assuming that the corresponding paired samples will go in unpaired_x and unpaired_y.
 		file_name, paired_pct, unpaired_pct = file_info[idx], float(file_info[idx+1]), float(file_info[idx+2])
 		idx += 3
-		with open(path.join(data_dir, '{}.intent'.format(file_name)), 'r') as data_file:
+		with open(path.join(data_dir, '{}.x'.format(file_name)), 'r') as data_file:
 			intent_data = [ l.strip('\n\r') for l in data_file.readlines() ]
 
-		with open(path.join(data_dir, '{}.snippet'.format(file_name)), 'r') as data_file:
+		with open(path.join(data_dir, '{}.y'.format(file_name)), 'r') as data_file:
 			snippet_data = [ l.strip('\n\r') for l in data_file.readlines() ]
 
 		assert len(intent_data) == len(snippet_data)
@@ -149,3 +160,10 @@ def create_data_splits(params):
 	dump_paired(paired, paired_path)
 	dump_unpaired(unpaired_x, unpaired_path.format('x'))
 	dump_unpaired(unpaired_y, unpaired_path.format('y'))
+
+if __name__ == "__main__":
+
+	parser = argparse.ArgumentParser()
+	params = parse_args(parser)
+
+	create_data_splits(params)
