@@ -54,7 +54,7 @@ def fetch_raw(params):
 		unpaired_sz = int(unpaired_pct*data_sz/100.0)
 
 		# Generate a random permutation of the dataset.
-		permutation = np.random.permutation(data_sz)
+		permutation = np.random.permutation(data_sz)	
 
 		paired += [ [intent_data[idx], snippet_data[idx]] for idx in permutation[:paired_sz] ]
 		unpaired_x += [ intent_data[idx] for idx in permutation[paired_sz:paired_sz+unpaired_sz] ]
