@@ -39,6 +39,11 @@ TGT_DEV=$ORG_DATA_DIR/conala-dev.y
 SRC_TEST=$ORG_DATA_DIR/conala-test.x
 TGT_TEST=$ORG_DATA_DIR/conala-test.y
 
+SRC_DEV_BPE=$DATA_PATH/conala-dev.x.$CODES
+TGT_DEV_BPE=$DATA_PATH/conala-dev.y.$CODES
+SRC_TEST_BPE=$DATA_PATH/conala-test.x.$CODES
+TGT_TEST_BPE=$DATA_PATH/conala-test.y.$CODES
+
 SRC_VOCAB=$DATA_PATH/vocab.x.$CODES
 TGT_VOCAB=$DATA_PATH/vocab.y.$CODES
 
@@ -61,8 +66,8 @@ else
 	touch $MONO_SRC.$CODES
 fi
 $FASTBPE applybpe $PARA_SRC.$CODES $PARA_SRC $SRC_BPE_CODES
-$FASTBPE applybpe $SRC_DEV.$CODES $SRC_DEV $SRC_BPE_CODES
-$FASTBPE applybpe $SRC_TEST.$CODES $SRC_TEST $SRC_BPE_CODES
+$FASTBPE applybpe $SRC_DEV_BPE $SRC_DEV $SRC_BPE_CODES
+$FASTBPE applybpe $SRC_TEST_BPE $SRC_TEST $SRC_BPE_CODES
 echo "BPE codes applied to SRC"
 
 if [[ -s $MONO_TGT ]]; then
@@ -71,8 +76,8 @@ else
 	touch $MONO_TGT.$CODES
 fi
 $FASTBPE applybpe $PARA_TGT.$CODES $PARA_TGT $TGT_BPE_CODES
-$FASTBPE applybpe $TGT_DEV.$CODES $TGT_DEV $TGT_BPE_CODES
-$FASTBPE applybpe $TGT_TEST.$CODES $TGT_TEST $TGT_BPE_CODES
+$FASTBPE applybpe $TGT_DEV_BPE $TGT_DEV $TGT_BPE_CODES
+$FASTBPE applybpe $TGT_TEST_BPE $TGT_TEST $TGT_BPE_CODES
 echo "BPE codes applied to TGT"
 
 # # extract vocabulary
@@ -85,5 +90,10 @@ else
 	$FASTBPE getvocab $PARA_TGT.$CODES > $TGT_VOCAB
 fi
 
-python3 preprocess.py --data-dir $ORG_DATA_DIR --out-dir $BASE_DIR --name $CONFIG --dev conala-dev --test conala-test --use_bpe --bpe_codes $CODES
-python3 preprocess.py --data-dir $ORG_DATA_DIR --out-dir $BASE_DIR --name $CONFIG --dev conala-dev --test conala-test
+ln -sf $SRC_DEV $DATA_PATH
+ln -sf $TGT_DEV $DATA_PATH
+ln -sf $SRC_TEST $DATA_PATH
+ln -sf $TGT_TEST $DATA_PATH
+
+python3 preprocess.py --data-dir $DATA_PATH --out-dir $BASE_DIR --name $CONFIG --dev conala-dev --test conala-test --use_bpe --bpe_codes $CODES
+python3 preprocess.py --data-dir $DATA_PATH --out-dir $BASE_DIR --name $CONFIG --dev conala-dev --test conala-test
