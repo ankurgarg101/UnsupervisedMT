@@ -107,6 +107,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.n_sentences = 0
 		self.stats = {
 			'dis_costs': [],
+			'dis_aux_costs': [],
 			'processed_s': 0,
 			'processed_w': 0,
 		}
@@ -132,6 +133,10 @@ class TrainerMT(MultiprocessingEventLoop):
 
 		# initialize BPE subwords
 		self.init_bpe()
+
+		# REAL FAKE LABELS
+		self.real_label = 1
+		self.fake_label = 0
 
 		# initialize lambda coefficients and their configurations
 		parse_lambda_config(params, 'lambda_xe_mono')
@@ -352,22 +357,64 @@ class TrainerMT(MultiprocessingEventLoop):
 
 		# batch / encode
 		encoded = []
+		lang_labels = []
+		encoded_fake = []
+		lang_labels_fake = []
 		for lang_id, lang in enumerate(self.params.langs):
 			sent1, len1 = self.get_batch('dis', lang, None)
 			with torch.no_grad():
-				encoded.append(self.encoder(sent1.cuda(), len1, lang_id))
+				encoded_output = self.encoder(sent1.cuda(), len1, lang_id)
+				encoded.append(encoded_output)
+				lang_labels.append(lang_id)
+				if self.params.dis_aux:
+					for lang2_id, lang2 in enumerate(self.params.langs):
+						if lang_id != lang2_id:
+							sent2, len2, _ = self.decoder.generate(encoded_output, lang_id=lang2_id, max_len=self.params.max_len)
+							encoded_fake.append(self.encoder(sent2.cuda(), len2, lang2_id))
+							lang_labels_fake.append(lang2_id)
 
 		# discriminator
 		dis_inputs = [x.dis_input.view(-1, x.dis_input.size(-1)) for x in encoded]
-		ntokens = [dis_input.size(0) for dis_input in dis_inputs]
+		#ntokens = [dis_input.size(0) for dis_input in dis_inputs]
+		ntokens = [(label,dis_input.size(0)) for label, dis_input in zip(lang_labels, dis_inputs)]
 		encoded = torch.cat(dis_inputs, 0)
-		predictions = self.discriminator(encoded.data)
+		predictions_layers = self.discriminator.forward_layers(encoded.data)
 
-		# loss
-		self.dis_target = torch.cat([torch.zeros(sz).fill_(i) for i, sz in enumerate(ntokens)])
+		# loss - lang
+		#self.dis_target = torch.cat([torch.zeros(sz).fill_(i) for i, sz in enumerate(ntokens)])
+		self.dis_target = torch.cat([torch.zeros(sz).fill_(i) for i, sz in ntokens])
 		self.dis_target = self.dis_target.contiguous().long().cuda()
 		y = self.dis_target
+		loss = 0
 
+		if self.params.dis_aux:
+
+			dis_inputs_fake = [x.dis_input.view(-1, x.dis_input.size(-1)) for x in encoded_fake]
+			ntokens_fake = [(label, dis_input.size(0)) for label, dis_input in zip(lang_labels_fake, dis_inputs_fake)]
+			encoded_fake = torch.cat(dis_inputs_fake, 0)
+			predictions_layers_fake = self.discriminator.forward_layers(encoded_fake.data)
+			predictions_layers = torch.cat((predictions_layers, predictions_layers_fake), 0)
+			
+			dis_target_lang_fake = torch.cat([torch.zeros(sz).fill_(i) for i, sz in ntokens_fake])
+			dis_target_lang_fake = dis_target_lang_fake.contiguous().long().cuda()
+
+			y = torch.cat((self.dis_target, dis_target_lang_fake), 0)
+
+			# loss_2
+			dis_target_aux_real = torch.cat([torch.zeros(sz).fill_(self.real_label) for _, sz in ntokens])
+			dis_target_aux_real = dis_target_aux_real.contiguous().long().cuda()
+			dis_target_aux_fake = torch.cat([torch.zeros(sz).fill_(self.fake_label) for _, sz in ntokens_fake])
+			dis_target_aux_fake = dis_target_aux_fake.contiguous().long().cuda()
+			y_aux = torch.cat((dis_target_aux_real, dis_target_aux_fake), 0)
+
+			#Auxillary loss
+			predictions_aux = self.discriminator.forward_aux(predictions_layers)
+			loss1 = F.cross_entropy(predictions_aux, y_aux)
+			self.stats['dis_aux_costs'].append(loss1.item())
+			loss += loss1
+
+		#Language loss
+		predictions = self.discriminator.forward_lang(predictions_layers)
 		loss = F.cross_entropy(predictions, y)
 		self.stats['dis_costs'].append(loss.item())
 
@@ -485,7 +532,6 @@ class TrainerMT(MultiprocessingEventLoop):
 			fake_y = (fake_y + lang1_id) % params.n_langs
 			fake_y = fake_y.cuda()
 			dis_loss = F.cross_entropy(predictions, fake_y)
-
 		# total loss
 		assert lambda_xe > 0
 		loss = lambda_xe * xe_loss
@@ -627,8 +673,8 @@ class TrainerMT(MultiprocessingEventLoop):
 
 				# lang1 -> lang2
 				encoded = self.encoder(sent1, len1, lang_id=lang1_id)
-				#max_len = int(1.5 * len1.max() + 10)
-				max_len = params.max_len
+				max_len = int(1.5 * len1.max() + 10)
+				# max_len = params.max_len
 				if params.otf_sample == -1:
 					sent2, len2, _ = self.decoder.generate(encoded, lang_id=lang2_id, max_len=max_len)
 				else:
@@ -666,25 +712,58 @@ class TrainerMT(MultiprocessingEventLoop):
 		n_words3 = params.n_words[lang3_id]
 		self.encoder.train()
 		self.decoder.train()
+		if params.dis_aux:
+			self.discriminator.eval()
 
 		# prepare batch
 		sent1, sent2, sent3 = sent1.cuda(), sent2.cuda(), sent3.cuda()
 		bs = sent1.size(1)
-
+		dis_loss = 0
 		if backprop_temperature == -1:
-			# lang2 -> lang3
+			# lang1 -> lang2
+			encoded = self.encoder(sent1, len1, lang_id=lang1_id)
+
+			if params.dis_aux:
+				encoded_real = encoded.dis_input.view(-1, encoded.dis_input.size(-1))
+				predictions_layers = self.discriminator.forward_layers(encoded_real)
+
+			# lang2 -> lang3 
 			encoded = self.encoder(sent2, len2, lang_id=lang2_id)
+
+			if params.dis_aux:
+				encoded_fake = encoded.dis_input.view(-1, encoded.dis_input.size(-1))
+				predictions_layers_fake = self.discriminator.forward_layers(encoded_fake)
+				predictions_layers = torch.cat((predictions_layers, predictions_layers_fake), 0)
+				# discriminator feedback loss
+				if params.lambda_dis_aux:
+					predictions_aux = self.discriminator.forward_aux(predictions_layers_fake)
+					#fake_y = torch.LongTensor(predictions_aux.size(0)).random_(1, 2)
+					fake_y = torch.full((predictions_aux.size(0),), self.real_label, dtype=torch.long)
+					fake_y = fake_y.cuda()
+					dis_loss_aux = F.cross_entropy(predictions_aux, fake_y)
+					dis_loss += (params.lambda_dis_aux * dis_loss_aux)
+
+				if params.lambda_dis:
+					predictions_lang_fake = self.discriminator.forward_aux(predictions_layers_fake)
+					fake_y = torch.LongTensor(predictions_lang_fake.size(0)).random_(1, params.n_langs)
+					fake_y = (fake_y + lang2_id) % params.n_langs
+					fake_y = fake_y.cuda()
+					dis_loss_lang = F.cross_entropy(predictions_lang_fake, fake_y)
+					dis_loss += (params.lambda_dis * dis_loss_lang)
 		else:
 			# lang1 -> lang2
 			encoded = self.encoder(sent1, len1, lang_id=lang1_id)
 			scores = self.decoder(encoded, sent2[:-1], lang_id=lang2_id)
 			assert scores.size() == (len2.max() - 1, bs, n_words2)
 
+			
 			# lang2 -> lang3
 			bos = torch.cuda.FloatTensor(1, bs, n_words2).zero_()
 			bos[0, :, params.bos_index[lang2_id]] = 1
 			sent2_input = torch.cat([bos, F.softmax(scores / backprop_temperature, -1)], 0)
-			encoded = self.encoder(sent2_input, len2, lang_id=lang2_id)
+			encoded = self.encoder(sent2_input.long(), len2, lang_id=lang2_id)
+
+			
 
 		# cross-entropy scores / loss
 		scores = self.decoder(encoded, sent3[:-1], lang_id=lang3_id)
@@ -693,6 +772,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		assert lambda_xe > 0
 		loss = lambda_xe * xe_loss
 
+		loss += dis_loss
 		# check NaN
 		if (loss != loss).data.any():
 			logger.error("NaN detected")
@@ -734,6 +814,8 @@ class TrainerMT(MultiprocessingEventLoop):
 			mean_loss = [
 				('DIS', 'dis_costs'),
 			]
+			if self.params.dis_aux:
+				mean_loss.append(('DIS_AUX', 'dis_aux_costs'))
 			for lang in self.params.mono_directions:
 				mean_loss.append(('XE-%s-%s' % (lang, lang), 'xe_costs_%s_%s' % (lang, lang)))
 			for lang1, lang2 in self.params.para_directions:
