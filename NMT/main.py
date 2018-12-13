@@ -234,7 +234,7 @@ parser.add_argument("--length_penalty", type=float, default=1.0,
                     help="Length penalty: <1.0 favors shorter, >1.0 favors longer sentences")
 
 # Auxiliary Discriminator
-parser.add_argument('--dis_aux', default=False, action="store_true", help="Use custom discriminator")
+parser.add_argument("--dis_aux", type=bool_flag, default=False, help="Use custom discriminator")
 parser.add_argument('--lambda_dis_aux', type=float, default=0.1, help="Weight for the loss of real/fake classifier in detector")
 
 params = parser.parse_args()
