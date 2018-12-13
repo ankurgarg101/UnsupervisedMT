@@ -24,6 +24,8 @@ BLEU_SCRIPT_PATH = os.path.join(TOOLS_PATH, 'mosesdecoder/scripts/generic/multi-
 assert os.path.isfile(BLEU_SCRIPT_PATH), "Moses not found. Please be sure you downloaded Moses in %s" % TOOLS_PATH
 AST_SCRIPT_PATH = os.path.join(TOOLS_PATH, 'ast/metrics.py')
 assert os.path.isfile(AST_SCRIPT_PATH), "AST tool and post processing script not found in  %s" % TOOLS_PATH
+ACC_SCRIPT_PATH = os.path.join(TOOLS_PATH, 'acc/eval.py')
+assert os.path.isfile(AST_SCRIPT_PATH), "Accuracy eval script not found in  %s" % TOOLS_PATH
 
 
 class EvaluatorMT(object):
@@ -182,11 +184,19 @@ class EvaluatorMT(object):
 		logger.info("AST %s %s : %f" % (hyp_path, ref_path, ast))
 		logger.info("BRACKETS %s %s : %f" % (hyp_path, ref_path, brackets))
 
+		
+		# evaluate acc metrics
+		token_acc, complete_acc = eval_accuracy(ref_path, hyp_path)
+		logger.info("Token Acc %s %s : %f" % (hyp_path, ref_path, ast))
+		logger.info("Complete Acc %s %s : %f" % (hyp_path, ref_path, brackets))
+
 		# update scores
-		scores['ppl_%s_%s_%s' % (lang1, lang2, data_type)] = np.exp(xe_loss / count)
-		scores['bleu_%s_%s_%s' % (lang1, lang2, data_type)] = bleu
-		scores['ast_%s_%s_%s' % (lang1, lang2, data_type)] = ast
-		scores['brackets_%s_%s_%s' % (lang1, lang2, data_type)] = brackets
+		scores['ppl_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = np.exp(xe_loss / count)
+		scores['bleu_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = bleu
+		scores['ast_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = ast
+		scores['brackets_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = brackets
+		scores['token_acc_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = token_acc
+		scores['complete_acc_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = complete_acc
 
 	def eval_back(self, lang1, lang2, lang3, data_type, scores):
 		"""
@@ -257,11 +267,18 @@ class EvaluatorMT(object):
 		logger.info("AST %s %s : %f" % (hyp_path, ref_path, ast))
 		logger.info("BRACKETS %s %s : %f" % (hyp_path, ref_path, brackets))
 
+		# evaluate acc metrics
+		token_acc, complete_acc = eval_accuracy(ref_path, hyp_path)
+		logger.info("Token Acc %s %s : %f" % (hyp_path, ref_path, ast))
+		logger.info("Complete Acc %s %s : %f" % (hyp_path, ref_path, brackets))
+
 		# update scores
 		scores['ppl_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = np.exp(xe_loss / count)
 		scores['bleu_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = bleu
 		scores['ast_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = ast
 		scores['brackets_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = brackets
+		scores['token_acc_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = token_acc
+		scores['complete_acc_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = complete_acc
 
 	def run_all_evals(self, epoch):
 		"""
@@ -321,6 +338,28 @@ def eval_other_metrics(ref,hyp):
 				return -1, -1
 	return ast, bracket
 
+def eval_accuracy(ref, hyp);
+	"""
+	Given a file of hypothesis and reference files,
+	evaluates other metrics like ast and bracket checking. (only uses ref file if necessary)
+	"""
+	assert os.path.isfile(ref) and os.path.isfile(hyp)
+	command = 'python3 '+ ACC_SCRIPT_PATH + ' -ref %s -hyp %s'
+	p = subprocess.Popen(command % (ref, hyp), stdout=subprocess.PIPE, shell=True)
+	result = p.communicate()[0].decode("utf-8").split('\n')
+	token_acc = -1
+	complete_acc = -1
+	for line in result:
+		line = line.strip().split()
+		if len(line)>1:
+			if line[0].startswith('TACC'):
+				token_acc = float(line[1])
+			elif line[0].startswith('CACC'):
+				complete_acc = float(line[1])
+			else:
+				logger.warning('Impossible to parse accuracy evaluation output! "%s"' % result)
+				return -1, -1
+	return token_acc, complete_acc
 
 def convert_to_text(batch, lengths, dico, lang_id, params):
 	"""
