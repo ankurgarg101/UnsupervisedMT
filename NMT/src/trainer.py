@@ -369,7 +369,7 @@ class TrainerMT(MultiprocessingEventLoop):
 				if self.params.dis_aux:
 					for lang2_id, lang2 in enumerate(self.params.langs):
 						if lang_id != lang2_id:
-							sent2, len2, _ = self.decoder.generate(encoded_output, lang_id=lang2_id, max_len=self.params.max_len)
+							sent2, len2, _ = self.decoder.generate(encoded_output, lang_id=lang2_id, max_len=self.params.decode_max_len)
 							encoded_fake.append(self.encoder(sent2.cuda(), len2, lang2_id))
 							lang_labels_fake.append(lang2_id)
 
@@ -673,8 +673,8 @@ class TrainerMT(MultiprocessingEventLoop):
 
 				# lang1 -> lang2
 				encoded = self.encoder(sent1, len1, lang_id=lang1_id)
-				max_len = int(1.5 * len1.max() + 10)
-				# max_len = params.max_len
+				# max_len = int(1.5 * len1.max() + 10)
+				max_len = self.params.decode_max_len
 				if params.otf_sample == -1:
 					sent2, len2, _ = self.decoder.generate(encoded, lang_id=lang2_id, max_len=max_len)
 				else:

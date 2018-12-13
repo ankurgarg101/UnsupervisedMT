@@ -134,6 +134,8 @@ parser.add_argument("--n_back", type=int, default=0,
                     help="Number of back-parallel sentences (-1 for everything)")
 parser.add_argument("--max_len", type=int, default=250,
                     help="Maximum length of sentences (after BPE)")
+parser.add_argument("--decode_max_len", type=int, default=75,
+                    help="Decode maximum length of sentences (after BPE)")
 parser.add_argument("--max_vocab", type=int, default=-1,
                     help="Maximum vocabulary size (-1 to disable)")
 # training steps
