@@ -191,12 +191,12 @@ class EvaluatorMT(object):
 		logger.info("Complete Acc %s %s : %f" % (hyp_path, ref_path, brackets))
 
 		# update scores
-		scores['ppl_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = np.exp(xe_loss / count)
-		scores['bleu_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = bleu
-		scores['ast_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = ast
-		scores['brackets_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = brackets
-		scores['token_acc_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = token_acc
-		scores['complete_acc_%s_%s_%s_%s' % (lang1, lang2, lang3, data_type)] = complete_acc
+		scores['ppl_%s_%s_%s' % (lang1, lang2, data_type)] = np.exp(xe_loss / count)
+		scores['bleu_%s_%s_%s' % (lang1, lang2, data_type)] = bleu
+		scores['ast_%s_%s_%s' % (lang1, lang2, data_type)] = ast
+		scores['brackets_%s_%s_%s' % (lang1, lang2, data_type)] = brackets
+		scores['token_acc_%s_%s_%s' % (lang1, lang2, data_type)] = token_acc
+		scores['complete_acc_%s_%s_%s' % (lang1, lang2, data_type)] = complete_acc
 
 	def eval_back(self, lang1, lang2, lang3, data_type, scores):
 		"""
