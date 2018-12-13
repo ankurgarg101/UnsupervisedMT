@@ -338,7 +338,7 @@ def eval_other_metrics(ref,hyp):
 				return -1, -1
 	return ast, bracket
 
-def eval_accuracy(ref, hyp);
+def eval_accuracy(ref, hyp):
 	"""
 	Given a file of hypothesis and reference files,
 	evaluates other metrics like ast and bracket checking. (only uses ref file if necessary)
