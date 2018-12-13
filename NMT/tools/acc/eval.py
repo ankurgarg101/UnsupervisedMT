@@ -2,7 +2,6 @@ import os
 import sys
 import argparse
 from os import path
-import post_processing as pp
 
 def parse_args(parser):
 	parser.add_argument('-ref', dest='ref', type=str, required=True, help="Reference file path")
