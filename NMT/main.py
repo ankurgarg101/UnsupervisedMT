@@ -134,6 +134,8 @@ parser.add_argument("--n_back", type=int, default=0,
                     help="Number of back-parallel sentences (-1 for everything)")
 parser.add_argument("--max_len", type=int, default=250,
                     help="Maximum length of sentences (after BPE)")
+parser.add_argument("--decode_max_len", type=int, default=75,
+                    help="Decode maximum length of sentences (after BPE)")
 parser.add_argument("--max_vocab", type=int, default=-1,
                     help="Maximum vocabulary size (-1 to disable)")
 # training steps
@@ -232,8 +234,8 @@ parser.add_argument("--length_penalty", type=float, default=1.0,
                     help="Length penalty: <1.0 favors shorter, >1.0 favors longer sentences")
 
 # Auxiliary Discriminator
-parser.add_argument('--dis_aux', action="store_true", help="Use custom discriminator")
-parser.add_argument('--lamda_dis_aux', type=float, default=0.1, help="Weight for the loss of real/fake classifier in detector")
+parser.add_argument("--dis_aux", type=bool_flag, default=False, help="Use custom discriminator")
+parser.add_argument('--lambda_dis_aux', type=float, default=0.1, help="Weight for the loss of real/fake classifier in detector")
 
 params = parser.parse_args()
 

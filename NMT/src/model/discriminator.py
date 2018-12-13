@@ -50,5 +50,11 @@ class Discriminator(nn.Module):
 	def forward(self, input):
 		return self.out_language(self.layers(input))
 
+	def forward_lang(self, input):
+		return self.out_language(input)
+	
 	def forward_aux(self, input):
-		return self.out_auxillary(self.layers(input))
+		return self.out_auxillary(input)
+
+	def forward_layers(self, input):
+		return self.layers(input)
