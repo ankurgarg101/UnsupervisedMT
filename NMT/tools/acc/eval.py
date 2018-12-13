@@ -15,9 +15,9 @@ def calculate_metrics(ref_file, hyp_file):
 	"""
 
 	correct_tags = 0.0
-    total_tags = 0.0
-    complete_match = 0.0
-    total_lines = 0.0
+	total_tags = 0.0
+	complete_match = 0.0
+	total_lines = 0.0
 
 	with open(hyp_file, 'r') as hyp, open(ref_file, 'r') as ref:
 		
@@ -46,7 +46,7 @@ def calculate_metrics(ref_file, hyp_file):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    params = parse_args(parser)
+	parser = argparse.ArgumentParser()
+	params = parse_args(parser)
 
 	calculate_metrics(params['ref'], params['hyp'])

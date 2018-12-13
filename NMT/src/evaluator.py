@@ -25,7 +25,7 @@ assert os.path.isfile(BLEU_SCRIPT_PATH), "Moses not found. Please be sure you do
 AST_SCRIPT_PATH = os.path.join(TOOLS_PATH, 'ast/metrics.py')
 assert os.path.isfile(AST_SCRIPT_PATH), "AST tool and post processing script not found in  %s" % TOOLS_PATH
 ACC_SCRIPT_PATH = os.path.join(TOOLS_PATH, 'acc/eval.py')
-assert os.path.isfile(AST_SCRIPT_PATH), "Accuracy eval script not found in  %s" % TOOLS_PATH
+assert os.path.isfile(ACC_SCRIPT_PATH), "Accuracy eval script not found in  %s" % TOOLS_PATH
 
 
 class EvaluatorMT(object):
