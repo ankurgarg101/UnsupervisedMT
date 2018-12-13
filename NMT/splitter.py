@@ -39,6 +39,10 @@ def fetch_raw(params):
 		# NOTE: Currently, assuming that the corresponding paired samples will go in unpaired_x and unpaired_y.
 		file_name, paired_pct, unpaired_pct = file_info[idx], float(file_info[idx+1]), float(file_info[idx+2])
 		idx += 3
+
+		if (paired_pct + unpaired_pct) == 0.0:
+			continue
+
 		with open(path.join(data_dir, '{}.x'.format(file_name)), 'r') as data_file:
 			intent_data = [ l.strip('\n\r') for l in data_file.readlines() ]
 
