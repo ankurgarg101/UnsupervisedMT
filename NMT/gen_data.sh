@@ -27,7 +27,7 @@ FASTBPE=$FASTBPE_DIR/fast
 
 # fastText
 FASTTEXT_DIR=$TOOLS_PATH/fastText
-$FASTTEXT=$FASTTEXT_DIR/fasttext
+FASTTEXT=${FASTTEXT_DIR}/fasttext
 
 # files full paths
 SRC_BPE_CODES=$DATA_PATH/src.bpe
