@@ -27,6 +27,7 @@ def parse_args(parser):
 	parser.add_argument('--test', type=str, required=True, help="Name of Test Dataset")
 	parser.add_argument('--use_bpe', default=False, action="store_true", help="Check to use BPE")
 	parser.add_argument('--bpe_codes', type=int, help="No of BPE Codes")
+	parser.add_argument('--use_full', default=False, action="store_true", help="Whether to use full vocab or not")
 
 	return vars(parser.parse_args())
 
@@ -61,6 +62,11 @@ if __name__ == '__main__':
 	if params['use_bpe']:
 		langs = [ l + '.{}'.format(params['bpe_codes']) for l in langs ]
 
+	if params['use_full']:
+		full_voc_path = path.join(params['out_dir'], params['name'], 'data', 'vocab.z')
+		full_dico = Dictionary.read_vocab(full_voc_path)
+		assert os.path.isfile(full_voc_path)
+
 	split = ['para', 'mono']
 
 	for lang in langs:
@@ -79,6 +85,14 @@ if __name__ == '__main__':
 
 			create_binary(txt_path, bin_path, dico)
 
+			if params['use_full']:
+
+				txt_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}.full'.format(spl, lang))
+				bin_path = txt_path + '.pth'
+				assert os.path.isfile(txt_path)
+
+				create_binary(txt_path, bin_path, full_dico)
+
 
 		txt_path = path.join(params['data_dir'], '{}.{}'.format(params['dev'], lang))
 		bin_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}'.format(params['dev'], lang))
@@ -93,3 +107,19 @@ if __name__ == '__main__':
 		assert os.path.isfile(txt_path)
 
 		create_binary(txt_path, bin_path, dico)
+
+		if params['use_full']:
+
+			txt_path = path.join(params['data_dir'], '{}.{}.full'.format(params['dev'], lang))
+			bin_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}.full'.format(params['test'], lang))
+			bin_path = bin_path + '.pth'
+			assert os.path.isfile(txt_path)
+
+			create_binary(txt_path, bin_path, full_dico)
+
+			txt_path = path.join(params['data_dir'], '{}.{}.full'.format(params['test'], lang))
+			bin_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}.full'.format(params['test'], lang))
+			bin_path = bin_path + '.pth'
+			assert os.path.isfile(txt_path)
+
+			create_binary(txt_path, bin_path, full_dico)
