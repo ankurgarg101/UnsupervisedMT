@@ -63,7 +63,7 @@ if __name__ == '__main__':
 		langs = [ l + '.{}'.format(params['bpe_codes']) for l in langs ]
 
 	if params['use_full']:
-		full_voc_path = path.join(params['out_dir'], params['name'], 'data', 'vocab.z')
+		full_voc_path = path.join(params['out_dir'], params['name'], 'data', 'vocab.z.{}'.format(params['bpe_codes']))
 		full_dico = Dictionary.read_vocab(full_voc_path)
 		assert os.path.isfile(full_voc_path)
 
