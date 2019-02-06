@@ -61,7 +61,7 @@ SRC_VOCAB=$DATA_PATH/vocab.x.$CODES
 TGT_VOCAB=$DATA_PATH/vocab.y.$CODES
 FULL_VOCAB=$DATA_PATH/vocab.z.$CODES
 
-CONCAT_BPE="concat".$CODES.$FULL
+CONCAT_BPE=$DATA_PATH/"concat".$CODES.$FULL
 
 # Delete all .pth files
 rm -f $DATA_PATH/*.pth
