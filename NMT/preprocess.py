@@ -111,7 +111,7 @@ if __name__ == '__main__':
 		if params['use_full']:
 
 			txt_path = path.join(params['data_dir'], '{}.{}.full'.format(params['dev'], lang))
-			bin_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}.full'.format(params['test'], lang))
+			bin_path = path.join(params['out_dir'], params['name'], 'data', '{}.{}.full'.format(params['dev'], lang))
 			bin_path = bin_path + '.pth'
 			assert os.path.isfile(txt_path)
 
