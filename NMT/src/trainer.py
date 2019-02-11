@@ -27,7 +27,7 @@ class TrainerMT(MultiprocessingEventLoop):
 
 	VALIDATION_METRICS = []
 
-	def __init__(self, encoder, decoder, discriminator, lm, data, params):
+	def __init__(self, encoder, decoder, discriminator, lm, data, params, seq_discriminator):
 		"""
 		Initialize trainer.
 		"""
@@ -38,6 +38,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.lm = lm
 		self.data = data
 		self.params = params
+		self.discriminator_seq = discriminator_seq
 
 		# torch.backends.cudnn.enabled = params.cudnn_enabled
 

@@ -15,6 +15,7 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
 
 from . import LatentState, LSTM_PARAMS, BILSTM_PARAMS
 from .discriminator import Discriminator
+from .seq_discriminator import SeqDiscriminator
 from .lm import LM
 from ..modules.label_smoothed_cross_entropy import LabelSmoothedCrossEntropyLoss
 from .pretrain_embeddings import initialize_embeddings
@@ -772,6 +773,14 @@ def build_attention_model(params, data, cuda=True):
     else:
         discriminator = None
 
+    if params.lambda_dis_seq > 0.0:
+        logger.info("============ Building attention model - Sequence Discriminator ...")
+        seq_discriminator = SeqDiscriminator(params)
+        logger.info("")
+    else:
+        seq_discriminator = None
+
+
     # loss function for decoder reconstruction
     loss_fn = []
     for n_words in params.n_words:
@@ -804,6 +813,8 @@ def build_attention_model(params, data, cuda=True):
             decoder.vocab_mask_neg = [x.cuda() for x in decoder.vocab_mask_neg]
         if discriminator is not None:
             discriminator.cuda()
+        if seq_discriminator is not None:
+            seq_discriminator.cuda()
         if lm is not None:
             lm.cuda()
 
@@ -830,6 +841,11 @@ def build_attention_model(params, data, cuda=True):
                 logger.info("Reloading discriminator...")
                 dis = reloaded.get('dis', reloaded.get('discriminator'))
                 reload_model(discriminator, dis, discriminator.DIS_ATTR)
+            if params.reload_seq_dis:
+                assert seq_discriminator is not None
+                logger.info("Reloading discriminator...")
+                seq_dis = reloaded.get('dis', reloaded.get('seq_discriminator'))
+                reload_model(seq_discriminator, seq_dis, seq_discriminator.SEQ_DIS_ATTR)
 
     # log models
     encdec_params = set(
@@ -844,7 +860,8 @@ def build_attention_model(params, data, cuda=True):
     logger.info("Encoder: {}".format(encoder))
     logger.info("Decoder: {}".format(decoder))
     logger.info("Discriminator: {}".format(discriminator))
+    logger.info("Sequence Discriminator: {}".format(seq_discriminator))
     logger.info("LM: {}".format(lm))
     logger.info("")
 
-    return encoder, decoder, discriminator, lm
+    return encoder, decoder, discriminator, lm, seq_discriminator

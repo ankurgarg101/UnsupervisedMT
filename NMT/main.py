@@ -220,6 +220,8 @@ parser.add_argument("--reload_dec", type=bool_flag, default=False,
                     help="Reload a pre-trained decoder")
 parser.add_argument("--reload_dis", type=bool_flag, default=False,
                     help="Reload a pre-trained discriminator")
+parser.add_argument("--reload_seq_dis", type=bool_flag, default=False,
+                    help="Reload a pre-trained sequence discriminator")
 # freeze network parameters
 parser.add_argument("--freeze_enc_emb", type=bool_flag, default=False,
                     help="Freeze encoder embeddings")
@@ -235,7 +237,8 @@ parser.add_argument("--length_penalty", type=float, default=1.0,
 
 # Auxiliary Discriminator
 parser.add_argument("--dis_aux", type=bool_flag, default=False, help="Use custom discriminator")
-parser.add_argument('--lambda_dis_aux', type=float, default=0.1, help="Weight for the loss of real/fake classifier in detector")
+parser.add_argument('--lambda_dis_aux', type=float, default=0.0, help="Weight for the loss of real/fake classifier in detector")
+parser.add_argument('--lambda_dis_seq', type=float, default=0.0, help="Weight for the loss of real/fake sequence classifier in detector")
 
 params = parser.parse_args()
 
@@ -252,10 +255,10 @@ if __name__ == '__main__':
     # initialize experiment / load data / build model
     logger = initialize_exp(params)
     data = load_data(params)
-    encoder, decoder, discriminator, lm = build_mt_model(params, data)
+    encoder, decoder, discriminator, lm, seq_discriminator = build_mt_model(params, data)
 
     # initialize trainer / reload checkpoint / initialize evaluator
-    trainer = TrainerMT(encoder, decoder, discriminator, lm, data, params)
+    trainer = TrainerMT(encoder, decoder, discriminator, lm, data, params, seq_discriminator)
     trainer.reload_checkpoint()
     trainer.test_sharing()  # check parameters sharing
     evaluator = EvaluatorMT(trainer, data, params)
