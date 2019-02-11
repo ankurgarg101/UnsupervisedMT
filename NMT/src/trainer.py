@@ -38,7 +38,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.lm = lm
 		self.data = data
 		self.params = params
-		self.discriminator_seq = discriminator_seq
+		self.seq_discriminator = seq_discriminator
 
 		# torch.backends.cudnn.enabled = params.cudnn_enabled
 
@@ -64,13 +64,15 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.dec_optimizer = get_optimizer(decoder.parameters(), params.dec_optimizer)
 		self.dis_optimizer = get_optimizer(discriminator.parameters(), params.dis_optimizer) if discriminator is not None else None
 		self.lm_optimizer = get_optimizer(lm.parameters(), params.enc_optimizer) if lm is not None else None
-
+		self.seq_dis_optimizer = get_optimizer(seq_discriminator.parameters(), params.dis_optimizer) if seq_discriminator is not None else None
+		
 		# models / optimizers
 		self.model_opt = {
 			'enc': (self.encoder, self.enc_optimizer),
 			'dec': (self.decoder, self.dec_optimizer),
 			'dis': (self.discriminator, self.dis_optimizer),
 			'lm': (self.lm, self.lm_optimizer),
+			'seq_dis': (self.seq_discriminator, self.seq_dis_optimizer),
 		}
 
 		# define validation metrics / stopping criterion used for early stopping
@@ -109,6 +111,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.stats = {
 			'dis_costs': [],
 			'dis_aux_costs': [],
+			'dis_seq_costs': [],
 			'processed_s': 0,
 			'processed_w': 0,
 		}
@@ -146,6 +149,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		parse_lambda_config(params, 'lambda_xe_otfd')
 		parse_lambda_config(params, 'lambda_xe_otfa')
 		parse_lambda_config(params, 'lambda_dis')
+		parse_lambda_config(params, 'lambda_dis_seq')
 		parse_lambda_config(params, 'lambda_lm')
 
 	def init_bpe(self):
@@ -343,6 +347,10 @@ class TrainerMT(MultiprocessingEventLoop):
 			if optimizer is not None:
 				lrs[name] = optimizer.param_groups[0]['lr']
 		return lrs
+	
+	def get_one_hot(self, sent, n_words):
+		one_hot = torch.zeros((sent.size(0),sent.size(1),n_words))
+		return one_hot.scatter_(-1,sent.unsqueeze(-1),1)
 
 	def discriminator_step(self):
 		"""
@@ -351,6 +359,8 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.encoder.eval()
 		self.decoder.eval()
 		self.discriminator.train()
+		if self.params.seq_dis:
+			self.seq_discriminator.train()
 
 		# train on monolingual data only
 		if self.params.n_mono == 0:
@@ -358,16 +368,35 @@ class TrainerMT(MultiprocessingEventLoop):
 
 		# batch / encode
 		encoded = []
-		lang_labels = []
 		encoded_fake = []
+		lang_labels = []
 		lang_labels_fake = []
+
+		seq_decoded  = [[] for n in self.params.n_langs]
+		seq_labels  = [[] for n in self.params.n_langs]
+		seq_len = [[] for n in self.params.n_langs]
+
 		for lang_id, lang in enumerate(self.params.langs):
 			sent1, len1 = self.get_batch('dis', lang, None)
 			with torch.no_grad():
 				encoded_output = self.encoder(sent1.cuda(), len1, lang_id)
-				encoded.append(encoded_output)
-				lang_labels.append(lang_id)
+				if self.params.seq_dis:
+					seq_decoded[lang_id].append(self.get_one_hot(sent1, params.n_words[lang_id]))
+					seq_labels[lang_id].append(torch.zeros(sent1.size(0))+self.real_label)
+					seq_len[lang_id].append(len1)
+					for lang2_id, lang2 in enumerate(self.params.langs):
+						if lang1_id == lang2_id:
+							seq_decoded[lang2_id].append(self.decoder(encoded_output, sent1[:-1], lang2_id))
+							seq_labels[lang2_id].append(torch.zeros(sent1.size(0))+self.fake_label)
+							seq_len[lang2_id].append(len1)
+						else:	
+							sent2, len2, _ = self.decoder.generate(encoded_output, lang_id=lang2_id, max_len=self.params.decode_max_len)
+							seq_decoded[lang2_id].append(self.decoder(encoded_output, sent2[:-1], lang2_id))
+							seq_labels[lang2_id].append(torch.zeros(sent2.size(0))+self.fake_label)
+							seq_len[lang2_id].append(len2)
+							
 				if self.params.dis_aux:
+					lang_labels.append(lang_id)
 					for lang2_id, lang2 in enumerate(self.params.langs):
 						if lang_id != lang2_id:
 							sent2, len2, _ = self.decoder.generate(encoded_output, lang_id=lang2_id, max_len=self.params.decode_max_len)
@@ -387,6 +416,15 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.dis_target = self.dis_target.contiguous().long().cuda()
 		y = self.dis_target
 		loss = 0
+
+		if self.params.seq_dis:
+			for lang_id in self.params.n_langs:
+				src_tokens = torch.cat(seq_decoded[lang_id],0)
+				src_labels = torch.cat(seq_labels[lang_id],0)
+				src_len = torch.cat(seq_len[lang_id],0)
+				prediction = self.seq_discriminator(src_tokens,src_len,lang_id)
+				loss1 = F.cross_entropy(prediction,src_labels) 
+				loss += loss1
 
 		if self.params.dis_aux:
 
@@ -487,6 +525,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		Source / target autoencoder training (parallel data):
 			- encoders / decoders training on cross-entropy
 			- encoders training on discriminator feedback
+			- encoders+decoders training on seq_discriminator feedback
 			- encoders training on L2 loss (seq2seq only, not for attention)
 		"""
 		params = self.params
@@ -499,6 +538,8 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.decoder.train()
 		if self.discriminator is not None:
 			self.discriminator.eval()
+		if self.seq_discriminator is not None:
+			self.seq_discriminator.eval()
 
 		# batch
 		if back:
@@ -533,11 +574,24 @@ class TrainerMT(MultiprocessingEventLoop):
 			fake_y = (fake_y + lang1_id) % params.n_langs
 			fake_y = fake_y.cuda()
 			dis_loss = F.cross_entropy(predictions, fake_y)
+
+		# seq discriminator feedback loss
+		if params.lambda_seq_dis:
+			# Add both target and source
+			# predictions = self.seqdiscriminator(encoded.dis_input.view(-1, encoded.dis_input.size(-1)))
+			# fake_y = torch.LongTensor(predictions.size(0)).random_(1, params.n_langs)
+			# fake_y = (fake_y + lang1_id) % params.n_langs
+			# fake_y = fake_y.cuda()
+			# seqdis_loss = F.cross_entropy(predictions, fake_y)
+			pass
+		
 		# total loss
 		assert lambda_xe > 0
 		loss = lambda_xe * xe_loss
 		if params.lambda_dis:
 			loss = loss + params.lambda_dis * dis_loss
+		# if params.lambda_seq_dis:
+		# 	loss = loss + params.lambda_seq_dis * seq_dis_loss
 
 		# check NaN
 		if (loss != loss).data.any():
