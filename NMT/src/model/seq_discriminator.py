@@ -28,14 +28,17 @@ class SeqDiscriminator(nn.Module):
 		self.layers = nn.ModuleList()
 		for k in range(args.encoder_layers):
 			# create transformer layer for each language
+			self.layers[k] = nn.ModuleList()
 			for i in range(0, self.n_langs):
-				self.layers[k].append(SeqTransformerEncoderLayer(args, self.n_words[lang_id]))
+				self.layers[k].append(SeqTransformerEncoderLayer(args, self.n_words[i]))
 
-		lin_layers = []
+		self.lin_layers = nn.ModuleList()
 		for i in range(0, self.n_langs):
-			lin_layers.append(nn.Linear(self.n_words[i], 2))
+			if args.wgan:
+				self.lin_layers.append(nn.Linear(self.n_words[i], 1))
+			else:
+				self.lin_layers.append(nn.Linear(self.n_words[i], 2))
 
-		self.lin_layers = nn.ModuleList(lin_layers)
 
 	def forward(self, src_tokens, src_lengths, lang_id):
 		assert type(lang_id) is int
@@ -43,25 +46,25 @@ class SeqDiscriminator(nn.Module):
 		x = src_tokens
 		max_seq_len, batch_size, nw = src_tokens.size()
 
-		dummy_src = (torch.arange(max_seq_len, dtype=torch.long).expand(batch_size, max_seq_len) < src_lengths.unsqueeze(1)) + self.padding_idx
+		dummy_src = (torch.arange(max_seq_len, dtype=torch.long).cuda().expand(batch_size, max_seq_len) < src_lengths.unsqueeze(1)) + self.padding_idx
 
-		dummy_src = dummy_src.cuda()
+		dummy_src = dummy_src.permute(1,0).long().cuda().detach()
 		
-		x += self.embed_positions[lang_id](dummy_src)
-
+		
+		x =  torch.add(x,self.embed_positions[lang_id](dummy_src))
+		
 		x = F.dropout(x, p=self.dropout, training=self.training)
 
 		# compute padding mask
-		encoder_padding_mask = src_tokens.t().eq(self.padding_idx)
+		encoder_padding_mask = dummy_src.t().eq(self.padding_idx)
 
 		# encoder layers
 		for layer in self.layers:
 			x = layer[lang_id](x, encoder_padding_mask)
 
-		#
 		batch_idx = torch.arange(src_tokens.size()[1], dtype=torch.long).cuda()
 
-		x = self.lin_layers[lang_id]( x[src_lengths, batch_idx, :])  # B x 2
+		x = self.lin_layers[lang_id]( x[src_lengths-1, batch_idx, :])  # B x 2
 
 		return x
 
@@ -84,14 +87,14 @@ class SeqTransformerEncoderLayer(nn.Module):
 		super().__init__()
 		self.embed_dim = enc_dim
 		self.self_attn = MultiheadAttention(
-			self.embed_dim, args.encoder_attention_heads,
+			self.embed_dim, 1,
 			dropout=args.attention_dropout,
 		)
 		self.dropout = args.dropout
 		self.relu_dropout = args.relu_dropout
 		self.normalize_before = args.encoder_normalize_before
-		self.fc1 = Linear(self.embed_dim, args.encoder_ffn_embed_dim)
-		self.fc2 = Linear(args.encoder_ffn_embed_dim, self.embed_dim)
+		self.fc1 = SeqLinear(self.embed_dim, args.encoder_ffn_embed_dim)
+		self.fc2 = SeqLinear(args.encoder_ffn_embed_dim, self.embed_dim)
 		self.layer_norms = nn.ModuleList([LayerNorm(self.embed_dim) for i in range(2)])
 
 	def forward(self, x, encoder_padding_mask):

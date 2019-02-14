@@ -110,6 +110,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.n_sentences = 0
 		self.stats = {
 			'dis_costs': [],
+			'seq_dis_costs': [],
 			'dis_aux_costs': [],
 			'dis_seq_costs': [],
 			'processed_s': 0,
@@ -149,7 +150,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		parse_lambda_config(params, 'lambda_xe_otfd')
 		parse_lambda_config(params, 'lambda_xe_otfa')
 		parse_lambda_config(params, 'lambda_dis')
-		parse_lambda_config(params, 'lambda_dis_seq')
+		parse_lambda_config(params, 'lambda_seq_dis')
 		parse_lambda_config(params, 'lambda_lm')
 
 	def init_bpe(self):
@@ -349,7 +350,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		return lrs
 	
 	def get_one_hot(self, sent, n_words):
-		one_hot = torch.zeros((sent.size(0),sent.size(1),n_words))
+		one_hot = torch.zeros((sent.size(0),sent.size(1),n_words)).cuda()
 		return one_hot.scatter_(-1,sent.unsqueeze(-1),1)
 
 	def discriminator_step(self):
@@ -372,31 +373,35 @@ class TrainerMT(MultiprocessingEventLoop):
 		lang_labels = []
 		lang_labels_fake = []
 
-		seq_decoded  = [[] for n in self.params.n_langs]
-		seq_labels  = [[] for n in self.params.n_langs]
-		seq_len = [[] for n in self.params.n_langs]
+		seq_decoded  = [[] for n in range(self.params.n_langs)]
+		seq_labels  = [[] for n in range(self.params.n_langs)]
+		seq_len = [[] for n in range(self.params.n_langs)]
 
 		for lang_id, lang in enumerate(self.params.langs):
 			sent1, len1 = self.get_batch('dis', lang, None)
+			sent1, len1 = sent1.cuda(), len1.cuda()
 			with torch.no_grad():
-				encoded_output = self.encoder(sent1.cuda(), len1, lang_id)
+				encoded_output = self.encoder(sent1, len1, lang_id)
+				encoded.append(encoded_output)
+				lang_labels.append(lang_id)
+					
 				if self.params.seq_dis:
-					seq_decoded[lang_id].append(self.get_one_hot(sent1, params.n_words[lang_id]))
-					seq_labels[lang_id].append(torch.zeros(sent1.size(0))+self.real_label)
+					seq_decoded[lang_id].append(self.get_one_hot(sent1, self.params.n_words[lang_id]))
+					seq_labels[lang_id].append(torch.zeros(sent1.size(1)).cuda()+self.real_label)
 					seq_len[lang_id].append(len1)
 					for lang2_id, lang2 in enumerate(self.params.langs):
-						if lang1_id == lang2_id:
+						if lang_id == lang2_id:
 							seq_decoded[lang2_id].append(self.decoder(encoded_output, sent1[:-1], lang2_id))
-							seq_labels[lang2_id].append(torch.zeros(sent1.size(0))+self.fake_label)
-							seq_len[lang2_id].append(len1)
+							seq_labels[lang2_id].append(torch.zeros(sent1.size(1)).cuda()+self.fake_label)
+							seq_len[lang2_id].append(len1-1)
 						else:	
 							sent2, len2, _ = self.decoder.generate(encoded_output, lang_id=lang2_id, max_len=self.params.decode_max_len)
+							sent2 = sent2.cuda()
 							seq_decoded[lang2_id].append(self.decoder(encoded_output, sent2[:-1], lang2_id))
-							seq_labels[lang2_id].append(torch.zeros(sent2.size(0))+self.fake_label)
-							seq_len[lang2_id].append(len2)
+							seq_labels[lang2_id].append(torch.zeros(sent2.size(1)).cuda()+self.fake_label)
+							seq_len[lang2_id].append(len2-1)
 							
 				if self.params.dis_aux:
-					lang_labels.append(lang_id)
 					for lang2_id, lang2 in enumerate(self.params.langs):
 						if lang_id != lang2_id:
 							sent2, len2, _ = self.decoder.generate(encoded_output, lang_id=lang2_id, max_len=self.params.decode_max_len)
@@ -418,13 +423,21 @@ class TrainerMT(MultiprocessingEventLoop):
 		loss = 0
 
 		if self.params.seq_dis:
-			for lang_id in self.params.n_langs:
-				src_tokens = torch.cat(seq_decoded[lang_id],0)
-				src_labels = torch.cat(seq_labels[lang_id],0)
-				src_len = torch.cat(seq_len[lang_id],0)
-				prediction = self.seq_discriminator(src_tokens,src_len,lang_id)
-				loss1 = F.cross_entropy(prediction,src_labels) 
-				loss += loss1
+			loss1 = 0
+			for lang_id in range(self.params.n_langs):
+				for i in range(len(seq_decoded[lang_id])):
+					src_tokens = seq_decoded[lang_id][i]
+					src_labels = seq_labels[lang_id][i].long()
+					src_len = seq_len[lang_id][i]
+					prediction = self.seq_discriminator(src_tokens,src_len,lang_id)
+					
+					if self.params.wgan:
+						multiplier = (src_labels.unsqueeze(-1) - 0.5)*2
+						loss1 += torch.mm(multiplier.t().float(), prediction)
+					else:
+						loss1 += F.cross_entropy(prediction,src_labels)
+			self.stats['seq_dis_costs'].append(loss1.item()) 
+			loss += loss1
 
 		if self.params.dis_aux:
 
@@ -458,10 +471,19 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.stats['dis_costs'].append(loss.item())
 
 		# optimizer
-		self.zero_grad('dis')
+		D = []
+		if self.params.lambda_dis > 0.0:
+			D += ['dis']
+		if self.params.seq_dis:
+			D += ['seq_dis']
+		
+		self.zero_grad(D)
 		loss.backward()
-		self.update_params('dis')
+		self.update_params(D)
 		clip_parameters(self.discriminator, self.params.dis_clip)
+
+		if self.params.seq_dis:
+			clip_parameters(self.seq_discriminator, self.params.dis_clip)
 
 	def lm_step(self, lang):
 		"""
@@ -576,22 +598,23 @@ class TrainerMT(MultiprocessingEventLoop):
 			dis_loss = F.cross_entropy(predictions, fake_y)
 
 		# seq discriminator feedback loss
-		if params.lambda_seq_dis:
-			# Add both target and source
-			# predictions = self.seqdiscriminator(encoded.dis_input.view(-1, encoded.dis_input.size(-1)))
-			# fake_y = torch.LongTensor(predictions.size(0)).random_(1, params.n_langs)
-			# fake_y = (fake_y + lang1_id) % params.n_langs
-			# fake_y = fake_y.cuda()
-			# seqdis_loss = F.cross_entropy(predictions, fake_y)
-			pass
-		
+		if params.seq_dis:
+			seq_predictions = self.seq_discriminator(scores, (len2-1).cuda(), lang2_id)
+
+			if params.wgan:
+				seq_dis_loss = -1.0 * torch.sum(seq_predictions)
+			else:
+				seq_fake_y = torch.full((seq_predictions.size(0),), self.real_label, dtype=torch.long)
+				seq_fake_y = seq_fake_y.cuda()
+				seq_dis_loss = F.cross_entropy(seq_predictions, seq_fake_y)
+			
 		# total loss
 		assert lambda_xe > 0
 		loss = lambda_xe * xe_loss
 		if params.lambda_dis:
-			loss = loss + params.lambda_dis * dis_loss
-		# if params.lambda_seq_dis:
-		# 	loss = loss + params.lambda_seq_dis * seq_dis_loss
+			loss += params.lambda_dis * dis_loss
+		if params.seq_dis:
+			loss += params.lambda_seq_dis * seq_dis_loss
 
 		# check NaN
 		if (loss != loss).data.any():
@@ -623,7 +646,7 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.params.cpu_thread = True
 		self.data = None  # do not load data in the CPU threads
 		self.iterators = {}
-		self.encoder, self.decoder, _, _ = build_mt_model(self.params, self.data, cuda=False)
+		self.encoder, self.decoder, _, _, _ = build_mt_model(self.params, self.data, cuda=False)
 
 	def otf_sync_params(self):
 		# logger.info("Syncing encoder and decoder params for OTF generation ...")
@@ -924,6 +947,7 @@ class TrainerMT(MultiprocessingEventLoop):
 			'dec': self.decoder,
 			'dis': self.discriminator,
 			'lm': self.lm,
+			'seq_dis': self.seq_discriminator,
 		}, path)
 
 	def save_checkpoint(self):
@@ -934,10 +958,12 @@ class TrainerMT(MultiprocessingEventLoop):
 			'encoder': self.encoder,
 			'decoder': self.decoder,
 			'discriminator': self.discriminator,
+			'seq_discriminator': self.seq_discriminator,
 			'lm': self.lm,
 			'enc_optimizer': self.enc_optimizer,
 			'dec_optimizer': self.dec_optimizer,
 			'dis_optimizer': self.dis_optimizer,
+			'seq_dis_optimizer': self.seq_dis_optimizer,
 			'lm_optimizer': self.lm_optimizer,
 			'epoch': self.epoch,
 			'n_total_iter': self.n_total_iter,
@@ -961,10 +987,12 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.encoder = checkpoint_data['encoder']
 		self.decoder = checkpoint_data['decoder']
 		self.discriminator = checkpoint_data['discriminator']
+		self.seq_discriminator = checkpoint_data['seq_discriminator']
 		self.lm = checkpoint_data['lm']
 		self.enc_optimizer = checkpoint_data['enc_optimizer']
 		self.dec_optimizer = checkpoint_data['dec_optimizer']
 		self.dis_optimizer = checkpoint_data['dis_optimizer']
+		self.seq_dis_optimizer = checkpoint_data['seq_dis_optimizer']
 		self.lm_optimizer = checkpoint_data['lm_optimizer']
 		self.epoch = checkpoint_data['epoch']
 		self.n_total_iter = checkpoint_data['n_total_iter']
@@ -975,6 +1003,7 @@ class TrainerMT(MultiprocessingEventLoop):
 			'dec': (self.decoder, self.dec_optimizer),
 			'dis': (self.discriminator, self.dis_optimizer),
 			'lm': (self.lm, self.lm_optimizer),
+			'seq_dis': (self.seq_discriminator, self.seq_dis_optimizer),
 		}
 		logger.warning('Checkpoint reloaded. Resuming at epoch %i ...' % self.epoch)
 

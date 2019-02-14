@@ -237,9 +237,10 @@ parser.add_argument("--length_penalty", type=float, default=1.0,
 
 # Auxiliary Discriminator
 parser.add_argument("--dis_aux", type=bool_flag, default=False, help="Use custom discriminator")
-parser.add_argument("--seq_dis", type=bool_flag, default=False, help="Use custom discriminator")
+parser.add_argument("--seq_dis", type=bool_flag, default=False, help="Use custom seq_discriminator")
 parser.add_argument('--lambda_dis_aux', type=float, default=0.0, help="Weight for the loss of real/fake classifier in detector")
-parser.add_argument('--lambda_seq_dis', type=float, default=0.0, help="Weight for the loss of real/fake sequence classifier in detector")
+parser.add_argument('--lambda_seq_dis', type=str, default="0", help="Weight for the loss of real/fake sequence classifier in detector")
+parser.add_argument("--wgan", type=bool_flag, default=False, help="Use wgan seq_discriminator")
 
 params = parser.parse_args()
 
