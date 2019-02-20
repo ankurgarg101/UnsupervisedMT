@@ -240,6 +240,7 @@ parser.add_argument("--dis_aux", type=bool_flag, default=False, help="Use custom
 parser.add_argument("--seq_dis", type=bool_flag, default=False, help="Use custom seq_discriminator")
 parser.add_argument('--lambda_dis_aux', type=float, default=0.0, help="Weight for the loss of real/fake classifier in detector")
 parser.add_argument('--lambda_seq_dis', type=str, default="0", help="Weight for the loss of real/fake sequence classifier in detector")
+parser.add_argument("--seq_dis_clip", type=float, default=0.01, help="Clip seq_discriminator weights (0 to disable)")
 parser.add_argument("--wgan", type=bool_flag, default=False, help="Use wgan seq_discriminator")
 
 params = parser.parse_args()

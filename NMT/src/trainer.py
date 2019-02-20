@@ -486,8 +486,8 @@ class TrainerMT(MultiprocessingEventLoop):
 		self.update_params(D)
 		clip_parameters(self.discriminator, self.params.dis_clip)
 
-		if self.params.seq_dis:
-			clip_parameters(self.seq_discriminator, self.params.dis_clip)
+		if self.params.seq_dis and self.params.wgan:
+			clip_parameters(self.seq_discriminator, self.params.seq_dis_clip)
 
 	def lm_step(self, lang):
 		"""
