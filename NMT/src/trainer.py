@@ -437,7 +437,7 @@ class TrainerMT(MultiprocessingEventLoop):
 						mul1 = src_labels.float().unsqueeze(-1) / (1.0 + torch.sum(src_labels.float()))
 						mul2 = (src_labels.float() - 1.0).unsqueeze(-1) / (1.0 + torch.sum(1.0 - src_labels.float()))
 
-						loss1 += -1.0 (torch.mm(mul1.t(), prediction)  + torch.mm(mul2.t(), prediction))
+						loss1 += -1.0 * (torch.mm(mul1.t(), prediction)  + torch.mm(mul2.t(), prediction))
 					else:
 						loss1 += F.cross_entropy(prediction,src_labels)
 			self.stats['seq_dis_costs'].append(loss1.item()) 
