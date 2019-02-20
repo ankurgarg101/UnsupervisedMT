@@ -432,8 +432,12 @@ class TrainerMT(MultiprocessingEventLoop):
 					prediction = self.seq_discriminator(src_tokens,src_len,lang_id)
 					
 					if self.params.wgan:
-						multiplier = (src_labels.unsqueeze(-1) - 0.5)*2
-						loss1 += torch.mm(multiplier.t().float(), prediction)
+						#multiplier = (src_labels.unsqueeze(-1) - 0.5)*2
+						
+						mul1 = src_labels.unsqueeze(-1) / (1.0 + torch.sum(src_labels))
+						mul2 = (src_labels - 1.0).unsqueeze(-1) / (1.0 + torch.sum(1.0 - src_labels))
+
+						loss1 += -1.0 (torch.mm(mul1.t().float(), prediction) + torch.mm(mul2.t().float(), prediction))
 					else:
 						loss1 += F.cross_entropy(prediction,src_labels)
 			self.stats['seq_dis_costs'].append(loss1.item()) 
@@ -602,7 +606,7 @@ class TrainerMT(MultiprocessingEventLoop):
 			seq_predictions = self.seq_discriminator(scores, (len2-1).cuda(), lang2_id)
 
 			if params.wgan:
-				seq_dis_loss = -1.0 * torch.sum(seq_predictions)
+				seq_dis_loss = -1.0 * torch.sum(seq_predictions) / (seq_predictions.size(0))
 			else:
 				seq_fake_y = torch.full((seq_predictions.size(0),), self.real_label, dtype=torch.long)
 				seq_fake_y = seq_fake_y.cuda()
